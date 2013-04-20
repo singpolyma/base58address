@@ -1,5 +1,5 @@
 name:            base58address
-version:         0.1
+version:         0.2
 cabal-version:   >= 1.8
 license:         OtherLicense
 license-file:    COPYING
@@ -32,6 +32,7 @@ library
                 base == 4.*,
                 containers,
                 bytestring,
+                binary,
                 cryptohash
 
 test-suite tests
@@ -44,6 +45,7 @@ test-suite tests
                 base == 4.*,
                 containers,
                 bytestring,
+                binary,
                 cryptohash,
                 QuickCheck >= 2.4.1.1,
                 test-framework,

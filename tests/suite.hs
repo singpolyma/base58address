@@ -1,5 +1,7 @@
 module Main (main) where
 
+import Data.Binary (encode, decode)
+
 import Test.Framework (defaultMain, testGroup, Test)
 import Test.Framework.Providers.QuickCheck2
 
@@ -17,12 +19,21 @@ prop_read_show_ripple adr = (read $! str) == adr
 	str = show $! adr
 	{-# NOINLINE str #-}
 
+prop_encode_decode_ripple :: RippleAddress0 -> Bool
+prop_encode_decode_ripple (RippleAddress0 adr) = (decode $! bytes) == adr
+	where
+	bytes = encode $! adr
+	{-# NOINLINE bytes #-}
+
 tests :: [Test]
 tests =
 	[
-		testGroup "Encode/decode loop" [
+		testGroup "read/show loop" [
 			testProperty "BitcoinAddress" prop_read_show_bitcoin,
 			testProperty "RippleAddress" prop_read_show_ripple
+		],
+		testGroup "encode/decode loop" [
+			testProperty "RippleAddress" prop_encode_decode_ripple
 		]
 	]
 

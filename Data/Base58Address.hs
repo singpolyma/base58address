@@ -1,9 +1,15 @@
 {-# LANGUAGE CPP #-}
---module Data.Base58Address (BitcoinAddress, RippleAddress) where
-module Data.Base58Address where
+#ifdef TESTS
+module Data.Base58Address (BitcoinAddress, RippleAddress, RippleAddress0(..)) where
+#else
+module Data.Base58Address (BitcoinAddress, RippleAddress) where
+#endif
 
+import Control.Monad (when)
 import Control.Arrow ((***))
 import Data.Word
+import Data.Binary (Binary(..), getWord8, putWord8)
+import Data.Binary.Get (getByteString)
 import qualified Crypto.Hash.SHA256 as SHA256
 import qualified Data.ByteString as BS
 
@@ -16,18 +22,22 @@ import Test.QuickCheck
 instance Arbitrary Base58Address where
 	arbitrary = do
 		ver <- arbitrary
-		adr <- arbitrary `suchThat` (>0)
+		adr <- arbitrary `suchThat` (>=0)
 		return $ Base58Address ver adr
 
 instance Arbitrary BitcoinAddress where
-	arbitrary = do
-		adr <- arbitrary
-		return $ BitcoinAddress adr
+	arbitrary = fmap BitcoinAddress arbitrary
 
 instance Arbitrary RippleAddress where
+	arbitrary = fmap RippleAddress arbitrary
+
+newtype RippleAddress0 = RippleAddress0 RippleAddress
+	deriving (Show)
+
+instance Arbitrary RippleAddress0 where
 	arbitrary = do
-		adr <- arbitrary
-		return $ RippleAddress adr
+		adr <- arbitrary `suchThat` (>=0)
+		return $ RippleAddress0 $ RippleAddress $ Base58Address 0 adr
 #endif
 
 newtype BitcoinAddress = BitcoinAddress Base58Address
@@ -57,6 +67,20 @@ instance Read RippleAddress where
 	readsPrec _ s = case decodeB58 rippleAlphabet s of
 		Just x -> [(RippleAddress x,"")]
 		Nothing -> []
+
+instance Binary RippleAddress where
+	get = do
+		len <- getWord8
+		when (len /= 20) $
+			fail $ "RippleAddress is 160 bit encoding, len is " ++ show len
+		value <- (fromBase 256 . BS.unpack) `fmap` getByteString 20
+		return $ RippleAddress (Base58Address 0 value)
+
+	put (RippleAddress (Base58Address 0 value)) = do
+		putWord8 20
+		let bytes = toBase 256 value
+		mapM_ putWord8 (replicate (20 - length bytes) 0 ++ bytes)
+	put _ = fail "RippleAddress version is always 0"
 
 data Base58Address = Base58Address !Word8 !Integer
 	deriving (Ord, Eq)
