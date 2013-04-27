@@ -5,10 +5,9 @@ module Data.Base58Address (BitcoinAddress, RippleAddress, RippleAddress0(..)) wh
 module Data.Base58Address (BitcoinAddress, RippleAddress) where
 #endif
 
-import Control.Monad (when)
 import Control.Arrow ((***))
 import Data.Word
-import Data.Binary (Binary(..), getWord8, putWord8)
+import Data.Binary (Binary(..), putWord8)
 import Data.Binary.Get (getByteString)
 import qualified Crypto.Hash.SHA256 as SHA256
 import qualified Data.ByteString as BS
@@ -70,14 +69,10 @@ instance Read RippleAddress where
 
 instance Binary RippleAddress where
 	get = do
-		len <- getWord8
-		when (len /= 20) $
-			fail $ "RippleAddress is 160 bit encoding, len is " ++ show len
 		value <- (fromBase 256 . BS.unpack) `fmap` getByteString 20
 		return $ RippleAddress (Base58Address 0 value)
 
 	put (RippleAddress (Base58Address 0 value)) = do
-		putWord8 20
 		let bytes = toBase 256 value
 		mapM_ putWord8 (replicate (20 - length bytes) 0 ++ bytes)
 	put _ = fail "RippleAddress version is always 0"
