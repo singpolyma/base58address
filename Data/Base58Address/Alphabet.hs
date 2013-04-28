@@ -30,5 +30,7 @@ fromAlphaDigit :: Alphabet -> Char -> Maybe Int
 fromAlphaDigit (Alphabet _ indices) v = Map.lookup v indices
 
 toIntegral :: (Integral a) => Alphabet -> a -> String -> Maybe a
-toIntegral a b = fmap (fromBase b) .
-	mapM (fmap toInteger . fromAlphaDigit a)
+toIntegral a b = fmap (fromBase b) . toDigits a
+
+toDigits :: Alphabet -> String -> Maybe [Integer]
+toDigits a = mapM (fmap toInteger . fromAlphaDigit a)

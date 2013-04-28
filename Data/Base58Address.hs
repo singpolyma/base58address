@@ -5,6 +5,7 @@ module Data.Base58Address (BitcoinAddress, RippleAddress, RippleAddress0(..)) wh
 module Data.Base58Address (BitcoinAddress, RippleAddress) where
 #endif
 
+import Control.Monad (guard)
 import Control.Arrow ((***))
 import Data.Word
 import Data.Binary (Binary(..), putWord8)
@@ -21,8 +22,10 @@ import Test.QuickCheck
 instance Arbitrary Base58Address where
 	arbitrary = do
 		ver <- arbitrary
-		adr <- arbitrary `suchThat` (>=0)
-		return $ Base58Address ver adr
+		Positive adr <- arbitrary
+		let bsiz = length (toBase 256 adr)
+		plen <- choose (bsiz,bsiz+100)
+		return $ Base58Address ver adr plen
 
 instance Arbitrary BitcoinAddress where
 	arbitrary = fmap BitcoinAddress arbitrary
@@ -36,7 +39,7 @@ newtype RippleAddress0 = RippleAddress0 RippleAddress
 instance Arbitrary RippleAddress0 where
 	arbitrary = do
 		adr <- arbitrary `suchThat` (>=0)
-		return $ RippleAddress0 $ RippleAddress $ Base58Address 0 adr
+		return $ RippleAddress0 $ RippleAddress $ Base58Address 0 adr 20
 #endif
 
 newtype BitcoinAddress = BitcoinAddress Base58Address
@@ -70,32 +73,35 @@ instance Read RippleAddress where
 instance Binary RippleAddress where
 	get = do
 		value <- (fromBase 256 . BS.unpack) `fmap` getByteString 20
-		return $ RippleAddress (Base58Address 0 value)
+		return $ RippleAddress (Base58Address 0 value 20)
 
-	put (RippleAddress (Base58Address 0 value)) = do
+	put (RippleAddress (Base58Address 0 value 20)) = do
 		let bytes = toBase 256 value
 		mapM_ putWord8 (replicate (20 - length bytes) 0 ++ bytes)
-	put _ = fail "RippleAddress version is always 0"
+	put _ = fail "RippleAddress account ID is always 0, length always 20"
 
-data Base58Address = Base58Address !Word8 !Integer
-	deriving (Ord, Eq)
+-- Version, payload, payload bytesize
+data Base58Address = Base58Address !Word8 !Integer !Int
+	deriving (Show, Ord, Eq)
 
 showB58 :: Alphabet -> Base58Address -> String
-showB58 alphabet (Base58Address version addr) = prefix ++
-	toString alphabet 58 (fromBase 256 (bytes' ++ mkChk bytes') :: Integer)
+showB58 alphabet (Base58Address version addr plen) = prefix ++
+	toString alphabet 58 (fromBase 256 (bytes ++ mkChk bytes) :: Integer)
 	where
-	prefix | version == 0 = toString alphabet 58 0
-	       | otherwise = ""
-	bytes' = version : replicate (20 - length bytes) 0 ++ bytes
-	bytes = toBase 256 addr
+	prefix = replicate (length $ takeWhile (==0) bytes) z
+	bytes = version : replicate (plen - length bytes') 0 ++ bytes'
+	bytes' = toBase 256 addr
+	Just z = toAlphaDigit alphabet 0
 
 decodeB58 :: Alphabet -> String -> Maybe Base58Address
 decodeB58 alphabet s = do
-	(chk,bytes) <- fmap (splitChk . toBase 256)
-		(toIntegral alphabet 58 s :: Maybe Integer)
-	let bytes' = replicate (21 - length bytes) 0 ++ bytes
-	if mkChk bytes' /= chk then Nothing else
-		Just $! Base58Address (head bytes') (fromBase 256 (tail bytes'))
+	(zs,digits) <- fmap (span (==0)) (toDigits alphabet s)
+	let (chk,bytes) = splitChk $ toBase 256 $ fromBase 58 digits
+	case (map fromIntegral zs) ++ bytes of
+		[] -> Nothing
+		(version:bytes') -> do
+			guard (mkChk (version:bytes') == chk)
+			return $! Base58Address version (fromBase 256 bytes') (length bytes')
 
 splitChk :: [a] -> ([a], [a])
 splitChk = (reverse *** reverse) . splitAt 4 . reverse
