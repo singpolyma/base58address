@@ -2,7 +2,7 @@
 #ifdef TESTS
 module Data.Base58Address (BitcoinAddress, RippleAddress, RippleAddress0(..)) where
 #else
-module Data.Base58Address (BitcoinAddress, RippleAddress) where
+module Data.Base58Address (BitcoinAddress, bitcoinAddressPayload, RippleAddress, rippleAddressPayload) where
 #endif
 
 import Control.Monad (guard)
@@ -48,6 +48,9 @@ newtype BitcoinAddress = BitcoinAddress Base58Address
 bitcoinAlphabet :: Alphabet
 bitcoinAlphabet = read "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
+bitcoinAddressPayload :: BitcoinAddress -> Integer
+bitcoinAddressPayload (BitcoinAddress (Base58Address _ p _)) = p
+
 instance Show BitcoinAddress where
 	show (BitcoinAddress adr) = showB58 bitcoinAlphabet adr
 
@@ -61,6 +64,9 @@ newtype RippleAddress = RippleAddress Base58Address
 
 rippleAlphabet :: Alphabet
 rippleAlphabet = read "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
+
+rippleAddressPayload :: RippleAddress -> Integer
+rippleAddressPayload (RippleAddress (Base58Address _ p _)) = p
 
 instance Show RippleAddress where
 	show (RippleAddress adr) = showB58 rippleAlphabet adr
