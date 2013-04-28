@@ -103,7 +103,7 @@ decodeB58 :: Alphabet -> String -> Maybe Base58Address
 decodeB58 alphabet s = do
 	(zs,digits) <- fmap (span (==0)) (toDigits alphabet s)
 	let (chk,bytes) = splitChk $ toBase 256 $ fromBase 58 digits
-	case (map fromIntegral zs) ++ bytes of
+	case map fromIntegral zs ++ bytes of
 		[] -> Nothing
 		(version:bytes') -> do
 			guard (mkChk (version:bytes') == chk)
